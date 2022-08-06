@@ -4,7 +4,10 @@
 library swiping_card_deck;
 
 import 'package:flutter/material.dart';
+
 import './src/swiping_gesture_detector.dart';
+
+export './src/swiping_gesture_notification.dart';
 
 /// A [SwipingDeck] of [Card] widgets
 typedef SwipingCardDeck = SwipingDeck<Card>;

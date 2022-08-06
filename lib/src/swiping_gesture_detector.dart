@@ -1,6 +1,8 @@
 import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
+import 'package:swiping_card_deck/src/swiping_gesture_notification.dart';
 
 //ignore: must_be_immutable
 class SwipingGestureDetector<T> extends StatefulWidget {
@@ -27,7 +29,7 @@ class SwipingGestureDetector<T> extends StatefulWidget {
   Alignment dragAlignment = Alignment.center;
 
   late final AnimationController swipeController;
-  late Animation<Alignment> swipe;
+  Animation<Alignment> swipe = const AlwaysStoppedAnimation(Alignment.center);
 
   @override
   State<StatefulWidget> createState() => _SwipingGestureDetector();
@@ -46,6 +48,7 @@ class _SwipingGestureDetector extends State<SwipingGestureDetector>
     springController.addListener(() {
       setState(() {
         widget.dragAlignment = spring.value;
+        dispatchNotification(context);
       });
     });
 
@@ -56,12 +59,18 @@ class _SwipingGestureDetector extends State<SwipingGestureDetector>
         widget.dragAlignment = widget.swipe.value;
       });
     });
+    SwipingGestureNotification(
+      offsetX: widget.dragAlignment.x,
+      position: SwipingGesturePosition.center,
+    ).dispatch(context);
   }
 
   @override
   void didUpdateWidget(covariant SwipingGestureDetector oldWidget) {
     super.didUpdateWidget(oldWidget);
     widget.swipeController = oldWidget.swipeController;
+    // todo 当Widget更新时，应当判断下卡片列表有无改变，如果没改变，则继续延续之前的滑动状态
+    widget.dragAlignment = oldWidget.dragAlignment;
   }
 
   @override
@@ -77,6 +86,8 @@ class _SwipingGestureDetector extends State<SwipingGestureDetector>
       onPanUpdate: (DragUpdateDetails details) {
         setState(() {
           widget.dragAlignment += Alignment(details.delta.dx, details.delta.dy);
+          dispatchNotification(context);
+          DragGestureNotification(true).dispatch(context);
         });
       },
       onPanStart: (DragStartDetails details) async {
@@ -85,15 +96,27 @@ class _SwipingGestureDetector extends State<SwipingGestureDetector>
         }
       },
       onPanEnd: (DragEndDetails details) async {
+        DragGestureNotification(false).dispatch(context);
         double vx = details.velocity.pixelsPerSecond.dx;
         if (vx >= widget.minimumVelocity ||
             widget.dragAlignment.x >= widget.swipeThreshold) {
+          SwipingGestureNotification(
+            offsetX: widget.dragAlignment.x,
+            position: SwipingGesturePosition.overRight,
+          ).dispatch(context);
+          DragGestureNotification(false).dispatch(context);
           await widget.swipeRight();
         } else if (vx <= -widget.minimumVelocity ||
             widget.dragAlignment.x <= -widget.swipeThreshold) {
+          SwipingGestureNotification(
+            offsetX: widget.dragAlignment.x,
+            position: SwipingGesturePosition.overLeft,
+          ).dispatch(context);
+          DragGestureNotification(false).dispatch(context);
           await widget.swipeLeft();
         } else {
           animateBackToDeck(details.velocity.pixelsPerSecond, screenSize);
+          DragGestureNotification(true).dispatch(context);
         }
         setState(() {
           widget.dragAlignment = Alignment.center;
@@ -104,6 +127,25 @@ class _SwipingGestureDetector extends State<SwipingGestureDetector>
         children: topTwoCards(),
       ),
     );
+  }
+
+  void dispatchNotification(BuildContext context) {
+    if (widget.dragAlignment.x >= widget.swipeThreshold) {
+      SwipingGestureNotification(
+        offsetX: widget.dragAlignment.x,
+        position: SwipingGesturePosition.overRight,
+      ).dispatch(context);
+    } else if (widget.dragAlignment.x <= -widget.swipeThreshold) {
+      SwipingGestureNotification(
+        offsetX: widget.dragAlignment.x,
+        position: SwipingGesturePosition.overLeft,
+      ).dispatch(context);
+    } else {
+      SwipingGestureNotification(
+        offsetX: widget.dragAlignment.x,
+        position: SwipingGesturePosition.center,
+      ).dispatch(context);
+    }
   }
 
   List<Widget> topTwoCards() {
